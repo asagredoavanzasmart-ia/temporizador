@@ -24,8 +24,16 @@ uniform float u_radii[8];  // MAX_COLORS max distances
 uniform float u_inertia[8]; // MAX_COLORS inertia values
 uniform float u_densityLimits[8]; // MAX_COLORS density limits
 uniform float u_minRepulsionDist[8]; // MAX_COLORS min repulsion dist
+uniform int u_polarityEnabled;
+uniform float u_polarity[8]; // number of poles
+
+uniform int u_radiusEnabled;
+uniform int u_inertiaEnabled;
+uniform int u_densityEnabled;
+uniform int u_minRepulsionEnabled;
 
 uniform float u_dt;
+uniform float u_speed;
 uniform vec2 u_resolution;
 
 in vec2 v_texcoord;
@@ -43,42 +51,51 @@ void main() {
     float typeIdFloat = posType.z;
     int typeId = int(typeIdFloat + 0.5) % u_numColors;
     vec2 vel = velOld.xy;
+    float theta = velOld.z;
+    
+    if (length(vel) > 0.1) {
+        theta = atan(vel.y, vel.x);
+    }
     
     vec2 force = vec2(0.0);
-    float dt = min(u_dt, 0.05);
+    float dt = min(u_dt, 0.05) * u_speed;
     
     float myRadius = u_radii[typeId];
     
+    float crowdingRadius = 40.0; // Fixed physical space for crowding evaluation
+    
     // PASS 1: Calculate local density
     float local_density = 0.0;
-    for(int i = 0; i < ${PARTICLE_COUNT}; i++) {
-        if(i == tc.x) continue; // Skip self
-        
-        vec4 otherPosType = texelFetch(u_posTypeMap, ivec2(i, 0), 0);
-        int otherId = int(otherPosType.z + 0.5) % u_numColors;
-        
-        vec2 dir = otherPosType.xy - pos;
-        
-        // Toroidal wrap-around for shortest distance
-        if (dir.x > u_resolution.x * 0.5) dir.x -= u_resolution.x;
-        else if (dir.x < -u_resolution.x * 0.5) dir.x += u_resolution.x;
-        
-        if (dir.y > u_resolution.y * 0.5) dir.y -= u_resolution.y;
-        else if (dir.y < -u_resolution.y * 0.5) dir.y += u_resolution.y;
+    if (u_densityEnabled > 0) {
+        for(int i = 0; i < ${PARTICLE_COUNT}; i++) {
+            if(i == tc.x) continue; // Skip self
+            
+            vec4 otherPosType = texelFetch(u_posTypeMap, ivec2(i, 0), 0);
+            int otherId = int(otherPosType.z + 0.5) % u_numColors;
+            
+            vec2 dir = otherPosType.xy - pos;
+            
+            if (dir.x > u_resolution.x * 0.5) dir.x -= u_resolution.x;
+            else if (dir.x < -u_resolution.x * 0.5) dir.x += u_resolution.x;
+            if (dir.y > u_resolution.y * 0.5) dir.y -= u_resolution.y;
+            else if (dir.y < -u_resolution.y * 0.5) dir.y += u_resolution.y;
 
-        float d = length(dir);
-        
-        if(d > 0.0 && d < myRadius) {
-            if(typeId == otherId) {
-                local_density += 1.0 - d / myRadius;
-            } else {
-                local_density += (1.0 - d / myRadius) * 0.5;
+            float d = length(dir);
+            if(d > 0.0 && d < crowdingRadius) {
+                if(typeId == otherId) {
+                    local_density += 1.0 - (d / crowdingRadius);
+                } else {
+                    local_density += (1.0 - (d / crowdingRadius)) * 0.5;
+                }
             }
         }
     }
     
     float densityLimit = u_densityLimits[typeId];
-    float density_factor = 1.0 - min(max(0.0, local_density - densityLimit), 2.0);
+    float density_factor = 1.0;
+    if (u_densityEnabled > 0) {
+        density_factor = 1.0 - min(max(0.0, local_density - densityLimit), 2.0);
+    }
 
     // PASS 2: N-Body force computation
     for(int i = 0; i < ${PARTICLE_COUNT}; i++) {
@@ -97,10 +114,19 @@ void main() {
         else if (dir.y < -u_resolution.y * 0.5) dir.y += u_resolution.y;
 
         float d = length(dir);
+        float activeRadius = u_radiusEnabled > 0 ? myRadius : 10000.0;
         
-        if(d > 0.0 && d < myRadius) {
+        if(d > 0.0 && d < activeRadius) {
             vec2 fDir = dir / d;
             float ruleForce = u_rules[typeId * 8 + otherId]; 
+            
+            float pol = u_polarity[typeId];
+            if (pol > 0.0 && u_polarityEnabled > 0) {
+               float dirAngle = atan(dir.y, dir.x);
+               float alpha = dirAngle - theta;
+               ruleForce *= cos(pol * alpha);
+               ruleForce *= (pol * 2.0); // Amplifica la fuerza vinculante
+            }
             
             // Limit attraction by local density factor
             if(ruleForce > 0.0) {
@@ -109,24 +135,25 @@ void main() {
             
             // Artificial repulsion to avoid overlaps completely (REQ-07)
             float minRep = u_minRepulsionDist[typeId];
-            if(d < minRep) {
+            if(d < minRep && u_minRepulsionEnabled > 0) {
                float repulsion = (minRep - d) * 1.0; 
                force -= fDir * repulsion;
             } else {
-               float strength = ruleForce * (1.0 - d / myRadius); 
+               float strength = ruleForce * (1.0 - d / activeRadius); 
                force += fDir * strength;
             }
         }
     }
     
     // Apply inertia based on rules
-    float mass = u_inertia[typeId];
+    float mass = u_inertiaEnabled > 0 ? u_inertia[typeId] : 1.0;
     // if mass <= 0.001, treat as infinite mass (unmovable) or standard
     if (mass < 0.1) mass = 0.1;
     vec2 accel = force / mass;
     
     vel += accel * dt;
-    vel *= 0.95; // Global friction
+    float friction = 0.05 / sqrt(mass);
+    vel *= (1.0 - friction); // Global mass-scaled Friction
     
     vec2 nextPos = pos + vel * dt;
     
@@ -138,7 +165,7 @@ void main() {
     else if(nextPos.y >= u_resolution.y) { nextPos.y -= u_resolution.y; }
     
     outPosType = vec4(nextPos, typeIdFloat, 1.0);
-    outVel = vec4(vel, 0.0, 1.0);
+    outVel = vec4(vel, theta, 1.0);
 }
 `;
 
@@ -214,6 +241,13 @@ export class ParticleSim {
   public inertias: number[] = new Array(8).fill(1.0);
   public densityLimits: number[] = new Array(8).fill(25.0);
   public minRepulsionDist: number[] = new Array(8).fill(10.0);
+  public polarities: number[] = new Array(8).fill(0.0);
+
+  public isPolarityEnabled: boolean = true;
+  public isRadiusEnabled: boolean = true;
+  public isInertiaEnabled: boolean = true;
+  public isDensityEnabled: boolean = true;
+  public isMinRepulsionEnabled: boolean = true;
 
   public zoom: number = 1.0;
   public speed: number = 1.0;
@@ -310,7 +344,14 @@ export class ParticleSim {
         u_inertia: this.inertias,
         u_densityLimits: this.densityLimits,
         u_minRepulsionDist: this.minRepulsionDist,
-        u_dt: dt * 10.0 * this.speed, // scale time for visual speed
+        u_polarityEnabled: this.isPolarityEnabled ? 1 : 0,
+        u_polarity: this.polarities,
+        u_radiusEnabled: this.isRadiusEnabled ? 1 : 0,
+        u_inertiaEnabled: this.isInertiaEnabled ? 1 : 0,
+        u_densityEnabled: this.isDensityEnabled ? 1 : 0,
+        u_minRepulsionEnabled: this.isMinRepulsionEnabled ? 1 : 0,
+        u_dt: dt * 10.0, // base unscaled physics step time
+        u_speed: this.speed,
         u_resolution: [gl.canvas.width, gl.canvas.height]
       });
 
