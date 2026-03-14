@@ -6,23 +6,14 @@ interface HomeProps {
 }
 
 export default function Home({ onSelect }: HomeProps) {
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
-
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }, []);
 
   return (
     <div className="home-container">
       <div className="home-header">
-        <button
-          className="theme-toggle-btn"
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          title="Cambiar Tema"
-          style={{ position: 'absolute', top: '1rem', right: '1rem' }}
-        >
-          {theme === 'dark' ? <Sun size={24} /> : <Moon size={24} />}
-        </button>
+
       </div>
 
       <div className="home-content">
@@ -48,7 +39,7 @@ export default function Home({ onSelect }: HomeProps) {
 
           <button className="app-card" onClick={() => onSelect('replicator')}>
             <div className="app-card-icon">
-              <Activity size={48} />{/* Placeholder icon */}
+              <Activity size={48} />
             </div>
             <h2 className="app-card-title">Fábrica de Replicadores</h2>
             <p className="app-card-desc">Simulación 2D de cinemática inversa con cadenas de ARN interactuando con Ribosomas para ensamblar nuevas máquinas moleculares orgánicas.</p>
@@ -125,12 +116,8 @@ export default function Home({ onSelect }: HomeProps) {
 
         .app-card:hover {
           transform: translateY(-5px);
-          border-color: #3b82f6; /* A nice blue hover border */
-          box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-        }
-
-        [data-theme='dark'] .app-card:hover {
-          box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+          border-color: #FF8C00;
+          box-shadow: 0 10px 30px rgba(255, 140, 0, 0.15);
         }
 
         .app-card-icon {
@@ -139,7 +126,7 @@ export default function Home({ onSelect }: HomeProps) {
         }
 
         .app-card:hover .app-card-icon {
-          color: #3b82f6;
+          color: #FF8C00;
         }
 
         .app-card-title {

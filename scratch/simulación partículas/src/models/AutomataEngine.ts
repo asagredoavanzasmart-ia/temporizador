@@ -295,7 +295,8 @@ export class AutomataEngine {
                         }
                       }
                     }
-                    fx += nx * force * 0.5; // Reduced normal force when bonded
+                    fx += nx * force * 0.5;
+                    fy += ny * force * 0.5;
                     
                     if (this.enableTransmutation) {
                       const targetColor = this.transmutationMatrix[ci * MAX_COLORS + cj];

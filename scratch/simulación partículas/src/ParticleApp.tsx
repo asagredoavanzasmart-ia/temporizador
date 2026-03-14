@@ -21,7 +21,7 @@ export type Snapshot = {
 export default function ParticleApp({ goBack }: { goBack: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const simRef = useRef<ParticleSim | null>(null);
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  
 
   // States to keep sync with UI
   const [numColors, setNumColors] = useState(5);
@@ -51,9 +51,7 @@ export default function ParticleApp({ goBack }: { goBack: () => void }) {
   const isDragging = useRef(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+
 
   // Init simulation
   useEffect(() => {
@@ -268,13 +266,7 @@ export default function ParticleApp({ goBack }: { goBack: () => void }) {
             >
               ← Volver
             </button>
-            <button
-              className="theme-toggle-btn"
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              title="Cambiar Tema"
-            >
-              {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-            </button>
+
           </div>
         </div>
 

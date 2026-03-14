@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ConwaySim } from './ConwaySim';
 import type { PatternName } from './ConwaySim';
 import './index.css';
-import { Moon, Sun, Play, Pause, Shuffle, Trash2 } from 'lucide-react';
+import { Play, Pause, Shuffle, Trash2, ZoomIn, ZoomOut, Grid } from 'lucide-react';
 
 interface ConwayAppProps {
     goBack: () => void;
@@ -11,26 +11,20 @@ interface ConwayAppProps {
 export default function ConwayApp({ goBack }: ConwayAppProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const simRef = useRef<ConwaySim | null>(null);
-    const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
     const [isPaused, setIsPaused] = useState(true);
     const [tickRate, setTickRate] = useState(15);
-    const [brushSize, setBrushSize] = useState(15);
+    const [brushSize, setBrushSize] = useState(1);
+    const [zoom, setZoom] = useState(1);
+    const [boardSize, setBoardSize] = useState(500);
 
-    useEffect(() => {
-        document.documentElement.setAttribute('data-theme', theme);
-    }, [theme]);
-
-    // Init simulation
+    // ── Iniciación del motor ────────────────────────────────────────────────
     useEffect(() => {
         if (!canvasRef.current) return;
         try {
             const canvas = canvasRef.current;
-            const rect = canvas.parentElement?.getBoundingClientRect();
-            if (rect) {
-                canvas.width = rect.width;
-                canvas.height = rect.height;
-            }
+            canvas.width = boardSize;
+            canvas.height = boardSize;
 
             const sim = new ConwaySim(canvas);
             simRef.current = sim;
@@ -39,31 +33,17 @@ export default function ConwayApp({ goBack }: ConwayAppProps) {
             sim.tickRate = tickRate;
             sim.brushSize = brushSize;
 
-            // Start blank
             sim.clear();
             sim.start();
 
-            const handleResize = () => {
-                const parent = canvas.parentElement;
-                if (parent) {
-                    canvas.width = parent.clientWidth;
-                    canvas.height = parent.clientHeight;
-                    simRef.current?.resize();
-                }
-            };
-
-            window.addEventListener('resize', handleResize);
-            return () => {
-                window.removeEventListener('resize', handleResize);
-                sim.stop();
-            };
+            return () => { sim.stop(); };
         } catch (err) {
             console.error(err);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Sync state
+    // ── Sincronizar parámetros de juego ────────────────────────────────────
     useEffect(() => {
         if (simRef.current) {
             simRef.current.isPaused = isPaused;
@@ -72,15 +52,36 @@ export default function ConwayApp({ goBack }: ConwayAppProps) {
         }
     }, [isPaused, tickRate, brushSize]);
 
-    // Mouse handlers for drawing
-    const handleMouseDown = (e: React.MouseEvent) => {
-        if (!simRef.current || !canvasRef.current) return;
+    // ── Redimensionar tablero cuando cambia boardSize ──────────────────────
+    useEffect(() => {
+        if (!canvasRef.current || !simRef.current) return;
+        canvasRef.current.width = boardSize;
+        canvasRef.current.height = boardSize;
+        simRef.current.resize();
+        simRef.current.clear();
+    }, [boardSize]);
+
+    // ── Helper: coordenadas CSS → espacio lógico del canvas ───────────────
+    // getBoundingClientRect() ya devuelve las medidas visuales con CSS scale aplicado,
+    // por lo que scaleX = canvas.width / rect.width = 1 / zoom (correcto).
+    const getCanvasCoords = (e: React.MouseEvent) => {
+        if (!canvasRef.current) return { x: -1, y: -1 };
         const rect = canvasRef.current.getBoundingClientRect();
-        simRef.current.isDrawing = true;
-        simRef.current.brushPos = {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
+        const scaleX = canvasRef.current.width / rect.width;
+        const scaleY = canvasRef.current.height / rect.height;
+        return {
+            x: (e.clientX - rect.left) * scaleX,
+            y: (e.clientY - rect.top) * scaleY,
         };
+    };
+
+    // ── Handlers del mouse ─────────────────────────────────────────────────
+    const handleMouseDown = (e: React.MouseEvent) => {
+        if (!simRef.current) return;
+        // Boton 0 = izquierdo (encender) | Botón 2 = derecho (apagar)
+        simRef.current.brushMode = e.button === 2 ? 'erase' : 'draw';
+        simRef.current.isDrawing = true;
+        simRef.current.brushPos = getCanvasCoords(e);
     };
 
     const handleMouseUp = () => {
@@ -91,130 +92,198 @@ export default function ConwayApp({ goBack }: ConwayAppProps) {
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
-        if (!simRef.current || !canvasRef.current || !simRef.current.isDrawing) return;
-        const rect = canvasRef.current.getBoundingClientRect();
-        simRef.current.brushPos = {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
-        };
+        if (!simRef.current || !simRef.current.isDrawing) return;
+        simRef.current.brushPos = getCanvasCoords(e);
     };
 
-    const randomize = () => {
-        if (simRef.current) simRef.current.randomize(0.15);
-    };
+    // ── Acciones rápidas ───────────────────────────────────────────────────
+    const randomize = () => { if (simRef.current) simRef.current.randomize(0.15); };
+    const clearGrid = () => { if (simRef.current) simRef.current.clear(); setIsPaused(true); };
+    const spawnPattern = (name: PatternName) => { if (simRef.current) simRef.current.spawnPattern(name); };
 
-    const clearGrid = () => {
-        if (simRef.current) simRef.current.clear();
-        setIsPaused(true);
-    };
-
-    const spawnPattern = (name: PatternName) => {
-        if (simRef.current) {
-            simRef.current.spawnPattern(name);
-        }
-    };
+    const zoomIn  = () => setZoom(z => Math.min(8, parseFloat((z * 1.5).toFixed(2))));
+    const zoomOut = () => setZoom(z => Math.max(0.25, parseFloat((z / 1.5).toFixed(2))));
+    const zoomReset = () => setZoom(1);
 
     return (
         <div className="app-container">
-            {/* LEFT CONTROLS PANEL */}
+            {/* ── PANEL IZQUIERDO ──────────────────────────────────────────── */}
             <aside className="controls-panel">
                 <div className="panel-header">
                     <h1 className="panel-title">Polvo Cósmico</h1>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <button className="theme-toggle-btn" onClick={goBack} title="Volver al Inicio">
-                            ← Volver
-                        </button>
-                        <button className="theme-toggle-btn" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} title="Cambiar Tema">
-                            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-                        </button>
-                    </div>
+                    <button className="theme-toggle-btn" onClick={goBack} title="Volver al Inicio">
+                        ← Volver
+                    </button>
                 </div>
 
+                {/* Controles globales */}
                 <div>
                     <h2 className="section-title">Controles Globales</h2>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        <button className="primary-btn outline" onClick={() => setIsPaused(!isPaused)} title={isPaused ? "Reanudar" : "Pausar"}>
+                        <button className="primary-btn outline" onClick={() => setIsPaused(!isPaused)}>
                             {isPaused ? <><Play size={14} /> Reanudar</> : <><Pause size={14} /> Pausa</>}
                         </button>
-                        <button className="primary-btn outline" onClick={randomize} title="Generar Sopa Primordial">
+                        <button className="primary-btn outline" onClick={randomize}>
                             <Shuffle size={14} /> Caos
                         </button>
-                        <button className="primary-btn outline" onClick={clearGrid} title="Limpiar y Detener">
+                        <button className="primary-btn outline" onClick={clearGrid}>
                             <Trash2 size={14} /> Limpiar
                         </button>
                     </div>
                 </div>
 
+                {/* ── ZOOM ──────────────────────────────────────────────── */}
+                <div className="mt-md">
+                    <h2 className="section-title">
+                        <ZoomIn size={12} style={{ display: 'inline', marginRight: 4 }} />
+                        Zoom
+                    </h2>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                        <button
+                            className="icon-btn"
+                            onClick={zoomOut}
+                            title="Alejar"
+                            style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                            <ZoomOut size={13} />
+                        </button>
+                        <input
+                            type="range"
+                            min={0.25} max={8} step={0.25}
+                            value={zoom}
+                            onChange={e => setZoom(parseFloat(e.target.value))}
+                            style={{ flex: 1 }}
+                        />
+                        <button
+                            className="icon-btn"
+                            onClick={zoomIn}
+                            title="Acercar"
+                            style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                            <ZoomIn size={13} />
+                        </button>
+                        <button
+                            className="icon-btn"
+                            onClick={zoomReset}
+                            title="1:1"
+                            style={{ fontSize: '9px', fontWeight: 700, padding: '2px 6px', height: '22px', color: '#FF8C00', border: '1px solid rgba(255,140,0,0.4)' }}
+                        >
+                            {zoom.toFixed(2)}×
+                        </button>
+                    </div>
+                </div>
+
+                {/* ── TAMAÑO DEL TABLERO ────────────────────────────────── */}
+                <div className="mt-md">
+                    <h2 className="section-title">
+                        <Grid size={12} style={{ display: 'inline', marginRight: 4 }} />
+                        Tablero
+                    </h2>
+                    <div className="slider-group">
+                        <div className="slider-row">
+                            <span className="slider-label" style={{ minWidth: '55px' }}>Celdas</span>
+                            <input
+                                type="range"
+                                min={50} max={1000} step={50}
+                                value={boardSize}
+                                onChange={e => setBoardSize(parseInt(e.target.value, 10))}
+                            />
+                            <span className="slider-value">{boardSize}×{boardSize}</span>
+                        </div>
+                        <p style={{ fontSize: '9px', color: '#64748b', marginTop: '2px' }}>
+                            {(boardSize * boardSize).toLocaleString()} celdas · ↑ tamaño = más lento
+                        </p>
+                    </div>
+                </div>
+
+                {/* ── AJUSTES ───────────────────────────────────────────── */}
                 <div>
                     <h2 className="section-title mt-md">Ajustes</h2>
                     <div className="slider-group">
                         <div className="slider-row">
                             <span className="slider-label" style={{ minWidth: '100px' }}>Velocidad (FPS)</span>
-                            <input type="range" min="1" max="60" step="1" value={tickRate} onChange={(e) => setTickRate(parseInt(e.target.value, 10))} />
+                            <input type="range" min="1" max="60" step="1" value={tickRate}
+                                onChange={e => setTickRate(parseInt(e.target.value, 10))} />
                             <span className="slider-value">{tickRate}</span>
                         </div>
                         <div className="slider-row">
                             <span className="slider-label" style={{ minWidth: '100px' }}>Pincel Divino</span>
-                            <input type="range" min="1" max="100" step="1" value={brushSize} onChange={(e) => setBrushSize(parseInt(e.target.value, 10))} />
-                            <span className="slider-value">{brushSize}px</span>
+                            <input type="range" min="1" max="200" step="1" value={brushSize}
+                                onChange={e => setBrushSize(parseInt(e.target.value, 10))} />
+                            <span className="slider-value">{brushSize === 1 ? '1 cel' : `r${brushSize - 1}`}</span>
                         </div>
                     </div>
                 </div>
 
+                {/* ── PATRONES ──────────────────────────────────────────── */}
                 <div className="mt-md">
                     <h2 className="section-title">Patrones Iniciales</h2>
 
                     <p className="text-xs color-secondary" style={{ marginBottom: '8px' }}>Planeadores</p>
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
-                        <button className="primary-btn outline" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => spawnPattern('glider')} title="El planeador original de Conway">Glider</button>
-                        <button className="primary-btn outline" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => spawnPattern('lwss')} title="Nave espacial ligera (LWSS)">LWSS</button>
+                        <button className="primary-btn outline" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => spawnPattern('glider')}>Glider</button>
+                        <button className="primary-btn outline" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => spawnPattern('lwss')}>LWSS</button>
                     </div>
 
                     <p className="text-xs color-secondary" style={{ marginBottom: '8px' }}>Osciladores</p>
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
-                        <button className="primary-btn outline" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => spawnPattern('blinker')} title="Oscilador de período 2">Blinker</button>
-                        <button className="primary-btn outline" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => spawnPattern('toad')} title="Sapo — Oscilador de período 2">Sapo</button>
-                        <button className="primary-btn outline" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => spawnPattern('beacon')} title="Faro — Oscilador de período 2">Faro</button>
-                        <button className="primary-btn outline" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => spawnPattern('pulsar')} title="Pulsar — Oscilador de período 3">Pulsar</button>
-                        <button className="primary-btn outline" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => spawnPattern('pentadecathlon')} title="Pentadecatlón — Período 15">Pentadecatlón</button>
+                        <button className="primary-btn outline" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => spawnPattern('blinker')}>Blinker</button>
+                        <button className="primary-btn outline" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => spawnPattern('toad')}>Sapo</button>
+                        <button className="primary-btn outline" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => spawnPattern('beacon')}>Faro</button>
+                        <button className="primary-btn outline" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => spawnPattern('pulsar')}>Pulsar</button>
+                        <button className="primary-btn outline" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => spawnPattern('pentadecathlon')}>Pentadecatlón</button>
                     </div>
 
                     <p className="text-xs color-secondary" style={{ marginBottom: '8px' }}>Patrones Caóticos</p>
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
-                        <button className="primary-btn outline" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => spawnPattern('rpentomino')} title="R-Pentomino — Caos durante 1103 gen.">R-Pentomino</button>
-                        <button className="primary-btn outline" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => spawnPattern('acorn')} title="Bellota — Crecimiento explosivo">Bellota</button>
-                        <button className="primary-btn outline" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => spawnPattern('diehard')} title="Diehard — Muere en 130 gen.">Diehard</button>
+                        <button className="primary-btn outline" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => spawnPattern('rpentomino')}>R-Pentomino</button>
+                        <button className="primary-btn outline" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => spawnPattern('acorn')}>Bellota</button>
+                        <button className="primary-btn outline" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => spawnPattern('diehard')}>Diehard</button>
                     </div>
 
                     <p className="text-xs color-secondary" style={{ marginBottom: '8px' }}>Generadores</p>
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                        <button className="primary-btn outline" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => spawnPattern('gosperGun')} title="Cañón de Gosper — Genera un glider cada 30 gen.">Cañón de Gosper</button>
+                        <button className="primary-btn outline" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => spawnPattern('gosperGun')}>Cañón de Gosper</button>
                     </div>
                 </div>
 
                 <div className="mt-md">
                     <p className="text-xs color-secondary" style={{ lineHeight: '1.5' }}>
-                        Dibuja sobre el lienzo oscuro arrastrando el ratón ("Pincel Divino"). Las células vivas interactúan constantemente a 60 FPS aceleradas por la GPU.
-                        <br /><br />
-                        Reglas de Conway:
-                        <br />- Una célula sobrevive si tiene 2 o 3 vecinos.
-                        <br />- Una célula nace si tiene exactamente 3 vecinos.
-                        <br />- En cualquier otro caso, muere por soledad o sobrepoblación.
+                        Dibuja arrastrando el ratón. Reglas de Conway:<br />
+                        – Sobrevive con 2 o 3 vecinos.<br />
+                        – Nace con exactamente 3 vecinos.<br />
+                        – Muere por soledad o sobrepoblación.
                     </p>
                 </div>
-
             </aside>
 
-            {/* WEBGL CANVAS CONTAINER */}
+            {/* ── LIENZO ──────────────────────────────────────────────────── */}
             <main
                 className="canvas-container"
                 onMouseDown={handleMouseDown}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
                 onMouseMove={handleMouseMove}
-                style={{ cursor: 'crosshair' }}
+                onContextMenu={e => e.preventDefault()}
+                style={{ cursor: 'crosshair', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >
-                <canvas ref={canvasRef} className="simulation-canvas" />
+                {/*
+                  El wrapper aplica el zoom como CSS transform.
+                  getBoundingClientRect() en el canvas ya devuelve las medidas visuales
+                  con el scale aplicado, por lo que getCanvasCoords() funciona sin ajustes.
+                */}
+                <div style={{
+                    transform: `scale(${zoom})`,
+                    transformOrigin: 'center center',
+                    display: 'inline-block',
+                    lineHeight: 0,
+                    transition: 'transform 0.15s ease',
+                }}>
+                    <canvas
+                        ref={canvasRef}
+                        style={{ imageRendering: 'pixelated', display: 'block' }}
+                    />
+                </div>
             </main>
         </div>
     );

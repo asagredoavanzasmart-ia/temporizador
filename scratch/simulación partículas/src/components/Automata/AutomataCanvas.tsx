@@ -92,7 +92,7 @@ export const AutomataCanvas: React.FC<ParticleCanvasProps> = ({ engine, colors, 
       window.removeEventListener('resize', updateSize);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [engine, colors, isPlaying]);
+  }, [engine, colors, isPlaying, animationSpeed]);
 
   return (
     <canvas

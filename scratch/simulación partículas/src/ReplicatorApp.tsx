@@ -13,15 +13,12 @@ export default function ReplicatorApp({ goBack }: ReplicatorAppProps) {
     const stateRef = useRef<SimState | null>(null);
     const reqRef = useRef<number | null>(null);
 
-    const [theme, setTheme] = useState<'light' | 'dark'>('dark');
     const [isPaused, setIsPaused] = useState(false);
     const [speed, setSpeed] = useState(1);
     const [temperature, setTemperature] = useState(1);
     const [repulsion, setRepulsion] = useState(1.5);
 
-    useEffect(() => {
-        document.documentElement.setAttribute('data-theme', theme);
-    }, [theme]);
+
 
     useEffect(() => {
         if (!canvasRef.current) return;
@@ -117,9 +114,6 @@ export default function ReplicatorApp({ goBack }: ReplicatorAppProps) {
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         <button className="theme-toggle-btn" onClick={goBack} title="Volver al Inicio">
                             ← Volver
-                        </button>
-                        <button className="theme-toggle-btn" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} title="Cambiar Tema">
-                            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
                         </button>
                     </div>
                 </div>

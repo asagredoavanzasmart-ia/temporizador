@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Pause, RotateCcw, Plus, Trash2, Activity, ChevronDown, Shuffle } from 'lucide-react';
+import { Play, Pause, RotateCcw, Activity, Shuffle } from 'lucide-react';
 import { MAX_COLORS } from '../../models/AutomataEngine';
 
 interface ControlsProps {
@@ -7,6 +7,7 @@ interface ControlsProps {
   setIsPlaying: (v: boolean) => void;
   onRestart: () => void;
   onRandomize: () => void;
+  goBack: () => void;
   
   numParticles: number;
   setNumParticles: (v: number) => void;
@@ -16,6 +17,8 @@ interface ControlsProps {
   setAnimationSpeed: (v: number) => void;
   temperature: number;
   setTemperature: (v: number) => void;
+  friction: number;
+  setFriction: (v: number) => void;
   
   colors: string[];
   setColors: (v: string[]) => void;
@@ -43,60 +46,26 @@ interface ControlsProps {
   
   angleStrength: number[];
   setAngleStrength: (v: number[]) => void;
-
-  enableMetabolism: boolean;
-  setEnableMetabolism: (v: boolean) => void;
-  enableMutation: boolean;
-  setEnableMutation: (v: boolean) => void;
-  enableStigmergy: boolean;
-  setEnableStigmergy: (v: boolean) => void;
-  enableTransmutation: boolean;
-  setEnableTransmutation: (v: boolean) => void;
-  enableChirality: boolean;
-  setEnableChirality: (v: boolean) => void;
-
-  pheromoneAttractionMatrix: number[][];
-  setPheromoneAttractionMatrix: (v: number[][]) => void;
-  transmutationMatrix: number[][];
-  setTransmutationMatrix: (v: number[][]) => void;
-  chiralityMatrix: number[][];
-  setChiralityMatrix: (v: number[][]) => void;
 }
-
-const Accordion = ({ title, children, defaultOpen = false }: { title: string, children: React.ReactNode, defaultOpen?: boolean }) => {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
-  return (
-    <div className="border-b border-slate-800">
-      <button 
-        className="w-full flex items-center justify-between p-4 bg-slate-900/50 hover:bg-slate-800/50 transition-colors"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">{title}</span>
-        <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-      {isOpen && <div className="p-4 bg-slate-900">{children}</div>}
-    </div>
-  );
-};
 
 const MatrixControl = ({ colors, matrix, onChange, min, max, step, isFloat = false }: any) => {
   return (
-    <div className="overflow-x-auto custom-scrollbar pb-2">
-      <div className="inline-grid gap-1" style={{ gridTemplateColumns: `auto repeat(${colors.length}, minmax(3rem, 1fr))` }}>
-        <div /> {/* Top-left empty */}
+    <div style={{ overflowX: 'auto', paddingBottom: '0.5rem' }}>
+      <div style={{ display: 'inline-grid', gap: '4px', gridTemplateColumns: `auto repeat(${colors.length}, minmax(3rem, 1fr))` }}>
+        <div />
         {colors.map((c: string, i: number) => (
-          <div key={`col-${i}`} className="flex justify-center items-center p-1">
-            <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: c }} />
+          <div key={`col-${i}`} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '4px' }}>
+            <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: c, boxShadow: '0 1px 2px rgba(0,0,0,0.5)' }} />
           </div>
         ))}
         
         {colors.map((colorI: string, i: number) => (
           <React.Fragment key={`row-${i}`}>
-            <div className="flex items-center justify-end pr-2">
-              <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: colorI }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: '8px' }}>
+              <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: colorI, boxShadow: '0 1px 2px rgba(0,0,0,0.5)' }} />
             </div>
             {colors.map((_: string, j: number) => {
-              const val = matrix[i][j];
+              const val = matrix[i] ? matrix[i][j] : 0;
               const displayVal = isFloat ? (val === 0 ? "0" : val.toFixed(2)) : val;
               return (
                 <input 
@@ -109,7 +78,17 @@ const MatrixControl = ({ colors, matrix, onChange, min, max, step, isFloat = fal
                     if (isNaN(v)) v = 0;
                     onChange(i, j, v);
                   }}
-                  className="w-12 h-8 bg-slate-900/80 border border-slate-700/50 rounded text-center text-emerald-400 font-mono text-xs focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+                  style={{
+                    width: '3rem', height: '2rem',
+                    backgroundColor: 'rgba(18,18,20,0.9)',
+                    border: '1px solid rgba(62,62,66,0.8)',
+                    borderRadius: '4px',
+                    textAlign: 'center',
+                    color: '#FF8C00',
+                    fontFamily: 'monospace',
+                    fontSize: '12px',
+                    outline: 'none',
+                  }}
                 />
               );
             })}
@@ -120,12 +99,41 @@ const MatrixControl = ({ colors, matrix, onChange, min, max, step, isFloat = fal
   );
 };
 
+const Accordion = ({ title, children, defaultOpen = false }: { title: string, children: React.ReactNode, defaultOpen?: boolean }) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  return (
+    <div style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '1rem', background: 'none', border: 'none', cursor: 'pointer',
+          transition: 'background-color 0.15s',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)')}
+        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+      >
+        <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', color: '#ababab', textTransform: 'uppercase' }}>
+          {title}
+        </span>
+        <Activity style={{ width: '12px', height: '12px', color: isOpen ? '#FF8C00' : '#3e3e42', transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s, color 0.3s' }} />
+      </button>
+      {isOpen && (
+        <div style={{ padding: '1rem', paddingTop: 0, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const AutomataControls: React.FC<ControlsProps> = ({
-  isPlaying, setIsPlaying, onRestart, onRandomize,
+  isPlaying, setIsPlaying, onRestart, onRandomize, goBack,
   numParticles, setNumParticles,
   speed, setSpeed,
   animationSpeed, setAnimationSpeed,
   temperature, setTemperature,
+  friction, setFriction,
   colors, setColors,
   attractionMatrix, setAttractionMatrix,
   radiusMatrix, setRadiusMatrix,
@@ -135,15 +143,9 @@ export const AutomataControls: React.FC<ControlsProps> = ({
   bondStrengthMatrix, setBondStrengthMatrix,
   idealAngle, setIdealAngle,
   angleStrength, setAngleStrength,
-  enableMetabolism, setEnableMetabolism,
-  enableMutation, setEnableMutation,
-  enableStigmergy, setEnableStigmergy,
-  enableTransmutation, setEnableTransmutation,
-  enableChirality, setEnableChirality,
-  pheromoneAttractionMatrix, setPheromoneAttractionMatrix,
-  transmutationMatrix, setTransmutationMatrix,
-  chiralityMatrix, setChiralityMatrix
 }) => {
+
+  const SPEED_OPTIONS = [0.1, 0.25, 0.5, 1, 2];
 
   const handleAddColor = () => {
     if (colors.length < MAX_COLORS) {
@@ -161,6 +163,7 @@ export const AutomataControls: React.FC<ControlsProps> = ({
   };
 
   const updateAttraction = (i: number, j: number, val: number) => {
+    if (!attractionMatrix[i]) return;
     const newMat = [...attractionMatrix];
     newMat[i] = [...newMat[i]];
     newMat[i][j] = val;
@@ -168,329 +171,294 @@ export const AutomataControls: React.FC<ControlsProps> = ({
   };
 
   const updateRadius = (i: number, j: number, val: number) => {
+    if (!radiusMatrix[i] || !radiusMatrix[j]) return;
     const newMat = [...radiusMatrix];
-    newMat[i] = [...newMat[i]];
-    newMat[i][j] = val;
-    newMat[j] = [...newMat[j]];
-    newMat[j][i] = val; // Enforce symmetry for radius
+    newMat[i] = [...newMat[i]]; newMat[i][j] = val;
+    newMat[j] = [...newMat[j]]; newMat[j][i] = val;
     setRadiusMatrix(newMat);
   };
 
   const updateMinDistance = (i: number, j: number, val: number) => {
+    if (!minDistanceMatrix[i] || !minDistanceMatrix[j]) return;
     const newMat = [...minDistanceMatrix];
-    newMat[i] = [...newMat[i]];
-    newMat[i][j] = val;
-    newMat[j] = [...newMat[j]];
-    newMat[j][i] = val; // Enforce symmetry for min distance
+    newMat[i] = [...newMat[i]]; newMat[i][j] = val;
+    newMat[j] = [...newMat[j]]; newMat[j][i] = val;
     setMinDistanceMatrix(newMat);
   };
 
   const updateBond = (i: number, j: number, val: number) => {
+    if (!bondMatrix[i] || !bondMatrix[j]) return;
     const newMat = [...bondMatrix];
-    newMat[i] = [...newMat[i]];
-    newMat[i][j] = val;
-    newMat[j] = [...newMat[j]];
-    newMat[j][i] = val; // Enforce symmetry for bonds
+    newMat[i] = [...newMat[i]]; newMat[i][j] = val;
+    newMat[j] = [...newMat[j]]; newMat[j][i] = val;
     setBondMatrix(newMat);
   };
 
   const updateMaxBonds = (i: number, j: number, val: number) => {
+    if (!maxBonds[i] || !maxBonds[j]) return;
     const newMat = [...maxBonds];
-    newMat[i] = [...newMat[i]];
-    newMat[i][j] = val;
-    newMat[j] = [...newMat[j]];
-    newMat[j][i] = val; // Enforce symmetry for max bonds
+    newMat[i] = [...newMat[i]]; newMat[i][j] = val;
+    newMat[j] = [...newMat[j]]; newMat[j][i] = val;
     setMaxBonds(newMat);
   };
 
   const updateBondStrength = (i: number, j: number, val: number) => {
+    if (!bondStrengthMatrix[i] || !bondStrengthMatrix[j]) return;
     const newMat = [...bondStrengthMatrix];
-    newMat[i] = [...newMat[i]];
-    newMat[i][j] = val;
-    newMat[j] = [...newMat[j]];
-    newMat[j][i] = val; // Enforce symmetry for bond strength
+    newMat[i] = [...newMat[i]]; newMat[i][j] = val;
+    newMat[j] = [...newMat[j]]; newMat[j][i] = val;
     setBondStrengthMatrix(newMat);
   };
 
   const updateAngle = (i: number, val: number) => {
-    const newArr = [...idealAngle];
-    newArr[i] = val;
-    setIdealAngle(newArr);
+    const newArr = [...idealAngle]; newArr[i] = val; setIdealAngle(newArr);
   };
 
   const updateAngleStrength = (i: number, val: number) => {
-    const newArr = [...angleStrength];
-    newArr[i] = val;
-    setAngleStrength(newArr);
+    const newArr = [...angleStrength]; newArr[i] = val; setAngleStrength(newArr);
   };
 
-  const updatePheromone = (i: number, j: number, val: number) => {
-    const newMat = [...pheromoneAttractionMatrix];
-    newMat[i] = [...newMat[i]];
-    newMat[i][j] = val;
-    setPheromoneAttractionMatrix(newMat);
-  };
+  /* ---- Estilos inline reutilizables ---- */
+  const sChip = (active: boolean): React.CSSProperties => ({
+    padding: '3px 10px',
+    borderRadius: '9999px',
+    fontSize: '10px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    border: active ? '1px solid #FF8C00' : '1px solid rgba(255,255,255,0.1)',
+    backgroundColor: active ? 'rgba(255,140,0,0.15)' : 'rgba(45,45,48,0.4)',
+    color: active ? '#FF8C00' : '#ababab',
+    transition: 'all 0.15s',
+  });
 
-  const updateTransmutation = (i: number, j: number, val: number) => {
-    const newMat = [...transmutationMatrix];
-    newMat[i] = [...newMat[i]];
-    newMat[i][j] = val;
-    setTransmutationMatrix(newMat);
-  };
-
-  const updateChirality = (i: number, j: number, val: number) => {
-    const newMat = [...chiralityMatrix];
-    newMat[i] = [...newMat[i]];
-    newMat[i][j] = val;
-    newMat[j] = [...newMat[j]];
-    newMat[j][i] = -val; // Anti-symmetric
-    setChiralityMatrix(newMat);
+  const sFrictionLabel: React.CSSProperties = {
+    fontSize: '9px', color: '#64748b', fontWeight: 600,
   };
 
   return (
-    <div className="w-full h-full bg-slate-900 text-slate-200 flex flex-col border-r border-slate-800 shadow-xl">
-      <div className="hidden md:flex p-4 border-b border-slate-800 items-center justify-between bg-slate-950">
-        <h1 className="text-lg font-bold tracking-tight text-white uppercase flex items-center gap-2">
-          <Activity className="w-5 h-5 text-emerald-400" />
-          Autómata Celular
-        </h1>
-        <div className="flex gap-2">
-          <button 
-            onClick={() => setIsPlaying(!isPlaying)}
-            className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors text-emerald-400"
-            title={isPlaying ? "Pausar" : "Reproducir"}
-          >
-            {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-          </button>
-          <button 
+    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }} className="custom-scrollbar">
+
+      {/* ──── CONFIGURACIÓN ──── */}
+      <Accordion title="Configuración" defaultOpen={true}>
+        <div className="slider-group">
+          <ControlSlider label="Partículas" value={numParticles} min={500} max={6000} step={500} onChange={setNumParticles} />
+          <ControlSlider label="Velocidad" value={speed} min={0.1} max={5} step={0.1} onChange={setSpeed} />
+          <ControlSlider label="Temperatura" value={temperature} min={0} max={10} step={0.1} onChange={setTemperature} />
+        </div>
+
+        {/* Velocidad de animación — chips */}
+        <div style={{ marginTop: '8px' }}>
+          <span style={{ fontSize: '10px', color: '#ababab', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>
+            Velocidad de Animación
+          </span>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            {SPEED_OPTIONS.map(opt => (
+              <button
+                key={opt}
+                style={sChip(animationSpeed === opt)}
+                onClick={() => setAnimationSpeed(opt)}
+              >
+                {opt}x
+              </button>
+            ))}
+          </div>
+        </div>
+      </Accordion>
+
+      {/* ──── DINÁMICA (Fricción) ──── */}
+      <Accordion title="Dinámica">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {/* Etiquetas de extremos */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={sFrictionLabel}>🪨 Fricción alta</span>
+            <span style={sFrictionLabel}>🌐 Espacio libre</span>
+          </div>
+          <input
+            type="range"
+            min={0.5} max={1.0} step={0.01}
+            value={friction}
+            onChange={(e) => setFriction(parseFloat(e.target.value))}
+            style={{ width: '100%', accentColor: '#FF8C00' }}
+          />
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '9px', color: '#64748b' }}>Roce</span>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#FF8C00', fontVariantNumeric: 'tabular-nums' }}>
+              {(friction * 100).toFixed(0)}%
+            </span>
+          </div>
+        </div>
+      </Accordion>
+
+      {/* ──── PARTÍCULAS Y COLORES ──── */}
+      <Accordion title="Partículas y Colores">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Activos: {colors.length}</span>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <button className="icon-btn" style={{ padding: '2px 8px', fontSize: '9px', height: '24px' }}
+                onClick={() => handleRemoveColor(colors.length - 1)} disabled={colors.length <= 1}>
+                − Quitar
+              </button>
+              <button className="icon-btn" style={{ padding: '2px 8px', fontSize: '9px', height: '24px' }}
+                onClick={handleAddColor} disabled={colors.length >= MAX_COLORS}>
+                + Agregar
+              </button>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            {colors.map((color, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(45,45,48,0.3)', padding: '8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <input type="color" value={color}
+                  onChange={(e) => { const nc = [...colors]; nc[i] = e.target.value; setColors(nc); }}
+                  style={{ width: '16px', height: '16px', borderRadius: '2px', cursor: 'pointer', border: 'none', padding: 0, background: 'transparent' }}
+                />
+                <span style={{ flex: 1, fontFamily: 'monospace', fontSize: '9px', color: '#94a3b8', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{color}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Accordion>
+
+      {/* ──── ATRACCIÓN Y RADIO ──── */}
+      <Accordion title="Atracción y Radio">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <span style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Fuerzas</span>
+              <button className="icon-btn" style={{ padding: '2px 8px', fontSize: '9px', height: '20px' }} onClick={onRandomize}>
+                <Shuffle size={10} /> Aleatorio
+              </button>
+            </div>
+            <MatrixControl colors={colors} matrix={attractionMatrix} onChange={updateAttraction} min={-1} max={1} step={0.05} isFloat />
+          </div>
+          <div>
+            <span style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>Radio de Acción</span>
+            <MatrixControl colors={colors} matrix={radiusMatrix} onChange={updateRadius} min={10} max={200} step={5} />
+          </div>
+        </div>
+      </Accordion>
+
+      {/* ──── FÍSICA DE ENLACES ──── */}
+      <Accordion title="Física de Enlaces">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div>
+            <span style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>Longitud</span>
+            <MatrixControl colors={colors} matrix={bondMatrix} onChange={updateBond} min={0} max={20} step={1} />
+          </div>
+          <div>
+            <span style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>Máximo Enlaces</span>
+            <MatrixControl colors={colors} matrix={maxBonds} onChange={updateMaxBonds} min={0} max={8} step={1} />
+          </div>
+        </div>
+      </Accordion>
+
+      {/* ──── GEOMETRÍA MOLECULAR ──── */}
+      <Accordion title="Geometría Molecular">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {colors.map((color, i) => (
+            <div key={`geom-${i}`} style={{ backgroundColor: 'rgba(45,45,48,0.2)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: color }} />
+                <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8' }}>Tipo {i + 1}</span>
+              </div>
+              <SliderWithInput label="Ángulo" value={idealAngle[i]} min={0} max={360} step={1} onChange={(v) => updateAngle(i, v)} />
+              <SliderWithInput label="Fuerza" value={angleStrength[i]} min={0} max={1} step={0.01} onChange={(v) => updateAngleStrength(i, v)} />
+            </div>
+          ))}
+        </div>
+      </Accordion>
+
+      {/* ──── FOOTER: 3 botones de acción ──── */}
+      <div style={{ padding: '1rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(18,18,20,0.7)', position: 'sticky', bottom: 0, backdropFilter: 'blur(12px)' }}>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button
+            className="primary-btn"
+            style={{ flex: 1, height: '38px', fontSize: '10px', backgroundColor: 'rgba(255,140,0,0.12)', borderColor: 'rgba(255,140,0,0.3)', color: '#FF8C00' }}
             onClick={onRandomize}
-            className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors text-purple-400"
-            title="Aleatorizar Parámetros"
+            title="Generar configuración aleatoria"
           >
-            <Shuffle className="w-4 h-4" />
+            <Shuffle size={13} /> Aleatorizar
           </button>
-          <button 
-            onClick={onRestart}
-            className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors text-blue-400"
-            title="Reiniciar"
+          <button
+            className="primary-btn outline"
+            style={{ flex: 1, height: '38px', fontSize: '10px' }}
+            onClick={() => setIsPlaying(!isPlaying)}
           >
-            <RotateCcw className="w-4 h-4" />
+            {isPlaying ? <Pause size={13} /> : <Play size={13} />} {isPlaying ? 'Pausa' : 'Seguir'}
+          </button>
+          <button
+            className="primary-btn outline"
+            style={{ flex: 1, height: '38px', fontSize: '10px' }}
+            onClick={onRestart}
+          >
+            <RotateCcw size={13} /> Reiniciar
           </button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
-        <Accordion title="General" defaultOpen>
-          <div className="space-y-5">
-            <ControlSlider label="Cantidad de Partículas" value={numParticles} min={1000} max={10000} step={500} onChange={setNumParticles} />
-            <ControlSlider label="Velocidad de Partículas" value={speed} min={0.1} max={5} step={0.1} onChange={setSpeed} />
-            <ControlSlider label="Velocidad de Animación" value={animationSpeed} min={1} max={10} step={1} onChange={setAnimationSpeed} />
-            <ControlSlider label="Temperatura (Agitación)" value={temperature} min={0} max={10} step={0.1} onChange={setTemperature} />
-          </div>
-        </Accordion>
-
-        <Accordion title="Colores">
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tipos de Partículas</span>
-              <button 
-                onClick={handleAddColor}
-                disabled={colors.length >= MAX_COLORS}
-                className="p-1.5 rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 disabled:opacity-50 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="space-y-2">
-              {colors.map((color, i) => (
-                <div key={i} className="flex items-center gap-3 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
-                  <input 
-                    type="color" 
-                    value={color}
-                    onChange={(e) => {
-                      const newColors = [...colors];
-                      newColors[i] = e.target.value;
-                      setColors(newColors);
-                    }}
-                    className="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent"
-                  />
-                  <span className="flex-1 font-mono text-xs text-slate-300 uppercase">{color}</span>
-                  <button 
-                    onClick={() => handleRemoveColor(i)}
-                    disabled={colors.length <= 1}
-                    className="p-1.5 text-rose-400 hover:bg-rose-400/10 rounded transition-colors disabled:opacity-50"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Accordion>
-
-        <Accordion title="Fuerzas de Atracción">
-          <p className="text-[10px] text-slate-400 leading-relaxed mb-4">
-            Positivo atrae, negativo repele.
-          </p>
-          <MatrixControl 
-            colors={colors} 
-            matrix={attractionMatrix} 
-            onChange={updateAttraction} 
-            min={-1} max={1} step={0.05} isFloat 
-          />
-        </Accordion>
-
-        <Accordion title="Radio de Acción">
-          <p className="text-[10px] text-slate-400 leading-relaxed mb-4">
-            Distancia máxima de interacción de fuerzas.
-          </p>
-          <MatrixControl 
-            colors={colors} 
-            matrix={radiusMatrix} 
-            onChange={updateRadius} 
-            min={10} max={200} step={5} 
-          />
-        </Accordion>
-
-        <Accordion title="Separación Mínima">
-          <p className="text-[10px] text-slate-400 leading-relaxed mb-4">
-            Distancia de repulsión máxima. 0 permite superposición.
-          </p>
-          <MatrixControl 
-            colors={colors} 
-            matrix={minDistanceMatrix} 
-            onChange={updateMinDistance} 
-            min={0} max={50} step={1} 
-          />
-        </Accordion>
-
-        <Accordion title="Longitud de Enlace">
-          <p className="text-[10px] text-slate-400 leading-relaxed mb-4">
-            0 = sin enlace. 1-20 = longitud del enlace.
-          </p>
-          <MatrixControl 
-            colors={colors} 
-            matrix={bondMatrix} 
-            onChange={updateBond} 
-            min={0} max={20} step={1} 
-          />
-        </Accordion>
-
-        <Accordion title="Máximo de Enlaces">
-          <p className="text-[10px] text-slate-400 leading-relaxed mb-4">
-            Cantidad máxima de enlaces permitidos entre colores.
-          </p>
-          <MatrixControl 
-            colors={colors} 
-            matrix={maxBonds} 
-            onChange={updateMaxBonds} 
-            min={0} max={8} step={1} 
-          />
-        </Accordion>
-
-        <Accordion title="Resistencia de Enlace">
-          <p className="text-[10px] text-slate-400 leading-relaxed mb-4">
-            Resistencia a romperse (0.0 = frágil, 1.0 = irrompible).
-          </p>
-          <MatrixControl 
-            colors={colors} 
-            matrix={bondStrengthMatrix} 
-            onChange={updateBondStrength} 
-            min={0} max={1} step={0.05} isFloat 
-          />
-        </Accordion>
-
-        <Accordion title="Geometría (Ángulos)">
-          <p className="text-[10px] text-slate-400 leading-relaxed mb-4">
-            Ángulo ideal entre enlaces para formar cristales.
-          </p>
-          <div className="space-y-4">
-            {colors.map((color, i) => (
-              <div key={`angle-${i}`} className="bg-slate-800/30 p-3 rounded-xl border border-slate-700/50 space-y-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: color }} />
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Ángulos de {color}</span>
-                </div>
-                <ControlSlider 
-                  label="Ángulo Ideal (°)" 
-                  value={idealAngle[i]} 
-                  min={0} max={360} step={1} 
-                  onChange={(v) => updateAngle(i, v)} 
-                />
-                <ControlSlider 
-                  label="Fuerza del Ángulo" 
-                  value={angleStrength[i]} 
-                  min={0} max={1} step={0.05} 
-                  onChange={(v) => updateAngleStrength(i, v)} 
-                />
-              </div>
-            ))}
-          </div>
-        </Accordion>
-
-        <Accordion title="Reglas Avanzadas (Vida Artificial)">
-          <div className="space-y-6">
-            <div className="space-y-3">
-              <Toggle label="Metabolismo y Energía" description="Las partículas consumen energía al moverse y enlazarse. El Color 1 genera energía. Si se quedan sin energía, mueren." checked={enableMetabolism} onChange={setEnableMetabolism} />
-              <Toggle label="Mutación y Herencia" description="Las partículas con mucha energía se replican reemplazando a las muertas, con un 5% de probabilidad de mutar de color." checked={enableMutation} onChange={setEnableMutation} />
-              <Toggle label="Señales Químicas (Stigmergia)" description="Las partículas dejan un rastro que otras pueden oler." checked={enableStigmergy} onChange={setEnableStigmergy} />
-              <Toggle label="Transmutación Celular" description="Las partículas cambian de color al estar enlazadas con ciertas especies." checked={enableTransmutation} onChange={setEnableTransmutation} />
-              <Toggle label="Quiralidad (Asimetría)" description="Fuerzas perpendiculares que generan rotación y motores moleculares." checked={enableChirality} onChange={setEnableChirality} />
-            </div>
-
-            {enableStigmergy && (
-              <div className="pt-4 border-t border-slate-800">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Atracción a Feromonas</p>
-                <MatrixControl colors={colors} matrix={pheromoneAttractionMatrix} onChange={updatePheromone} min={-1} max={1} step={0.1} isFloat />
-              </div>
-            )}
-
-            {enableTransmutation && (
-              <div className="pt-4 border-t border-slate-800">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Transmutación (-1 = Ninguna)</p>
-                <MatrixControl colors={colors} matrix={transmutationMatrix} onChange={updateTransmutation} min={-1} max={MAX_COLORS - 1} step={1} />
-              </div>
-            )}
-
-            {enableChirality && (
-              <div className="pt-4 border-t border-slate-800">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Quiralidad (Fuerza de Giro)</p>
-                <MatrixControl colors={colors} matrix={chiralityMatrix} onChange={updateChirality} min={-1} max={1} step={0.1} isFloat />
-              </div>
-            )}
-          </div>
-        </Accordion>
-      </div>
     </div>
   );
 };
 
-const ControlSlider = ({ label, value, min, max, step, onChange }: { label: string, value: number, min: number, max: number, step: number, onChange: (v: number) => void }) => (
-  <div className="space-y-2">
-    <div className="flex justify-between items-center">
-      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</label>
-      <span className="font-mono text-[10px] text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded">{value}</span>
-    </div>
+/* Slider + input numérico editable side by side */
+const SliderWithInput = ({ label, value, min, max, step, onChange }: { label: string, value: number, min: number, max: number, step: number, onChange: (v: number) => void }) => (
+  <div className="slider-row" style={{ gap: '6px' }}>
+    <span className="slider-label">{label}</span>
     <input 
       type="range" 
       min={min} max={max} step={step} 
       value={value} 
       onChange={(e) => onChange(parseFloat(e.target.value))}
-      className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+      style={{ flex: 1 }}
+    />
+    <input
+      type="number"
+      min={min} max={max} step={step}
+      value={value.toFixed(2)}
+      onChange={(e) => {
+        const v = parseFloat(e.target.value);
+        if (!isNaN(v)) onChange(Math.min(max, Math.max(min, parseFloat(v.toFixed(2)))));
+      }}
+      style={{
+        width: '52px', height: '22px',
+        backgroundColor: 'rgba(18,18,20,0.9)',
+        border: '1px solid rgba(62,62,66,0.8)',
+        borderRadius: '4px',
+        textAlign: 'center',
+        color: '#FF8C00',
+        fontFamily: 'monospace',
+        fontSize: '11px',
+        outline: 'none',
+        flexShrink: 0,
+      }}
     />
   </div>
 );
 
+const ControlSlider = ({ label, value, min, max, step, onChange }: { label: string, value: number, min: number, max: number, step: number, onChange: (v: number) => void }) => (
+  <div className="slider-row">
+    <span className="slider-label">{label}</span>
+    <input 
+      type="range" 
+      min={min} max={max} step={step} 
+      value={value} 
+      onChange={(e) => onChange(parseFloat(e.target.value))}
+    />
+    <span className="slider-value">{value.toFixed(2)}</span>
+  </div>
+);
+
+
 const Toggle = ({ label, description, checked, onChange }: { label: string, description: string, checked: boolean, onChange: (v: boolean) => void }) => (
-  <label className="flex items-start gap-3 cursor-pointer group">
-    <div className="relative flex items-center mt-0.5">
-      <input type="checkbox" className="sr-only" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-      <div className={`w-8 h-4 rounded-full transition-colors ${checked ? 'bg-purple-500' : 'bg-slate-700'}`}></div>
-      <div className={`absolute left-0.5 top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${checked ? 'translate-x-4' : 'translate-x-0'}`}></div>
-    </div>
+  <div className="flex items-center justify-between group">
     <div className="flex flex-col">
       <span className="text-xs font-bold text-slate-300 group-hover:text-white transition-colors">{label}</span>
-      <span className="text-[10px] text-slate-500 leading-tight mt-0.5">{description}</span>
+      <span className="text-[9px] text-slate-500 leading-tight">{description}</span>
     </div>
-  </label>
+    <label className="switch-label">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <div className="switch-visual" />
+    </label>
+  </div>
 );
+

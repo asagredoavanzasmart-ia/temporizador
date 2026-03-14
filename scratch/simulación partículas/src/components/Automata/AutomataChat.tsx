@@ -79,7 +79,7 @@ export const AutomataChat: React.FC<AIChatProps> = ({ onClose, onApplyParameters
     setIsLoading(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const ai = new GoogleGenAI(import.meta.env.VITE_GEMINI_API_KEY || "");
       
       const chatHistory = messages.map(m => ({
         role: m.role,

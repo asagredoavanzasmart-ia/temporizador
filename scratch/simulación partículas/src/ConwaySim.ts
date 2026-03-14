@@ -26,6 +26,7 @@ export class ConwaySim {
     public isDrawing: boolean = false;
     public brushPos: { x: number; y: number } = { x: -1, y: -1 };
     public brushSize: number = 15;
+    public brushMode: 'draw' | 'erase' = 'draw';
 
     // Colores (hex strings)
     public colorAlive: string = '#2563eb';
@@ -116,16 +117,26 @@ export class ConwaySim {
         if (!this.isDrawing || this.brushPos.x < 0) return;
         const bx = Math.round(this.brushPos.x);
         const by = Math.round(this.brushPos.y);
-        const br = Math.ceil(this.brushSize / 2);
+        // brushSize=1 → radio 0 → celda única
+        // brushSize=N → radio N-1 → círculo de N-1 celdas de radio
+        const br = this.brushSize - 1;
         const w = this.width;
         const h = this.height;
+
+        if (br <= 0) {
+            // Celda única
+            const nx = ((bx % w) + w) % w;
+            const ny = ((by % h) + h) % h;
+            this.cells[ny * w + nx] = this.brushMode === 'erase' ? 0 : 1;
+            return;
+        }
 
         for (let dy = -br; dy <= br; dy++) {
             for (let dx = -br; dx <= br; dx++) {
                 if (dx * dx + dy * dy <= br * br) {
-                    const nx = (bx + dx + w) % w;
-                    const ny = (by + dy + h) % h;
-                    this.cells[ny * w + nx] = 1;
+                    const nx = ((bx + dx) % w + w) % w;
+                    const ny = ((by + dy) % h + h) % h;
+                    this.cells[ny * w + nx] = this.brushMode === 'erase' ? 0 : 1;
                 }
             }
         }
