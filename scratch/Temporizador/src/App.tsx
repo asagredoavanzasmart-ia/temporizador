@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import { createPortal } from 'react-dom';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Play, Pause, Square, Plus, Minus, Wand2, Clock, AlertTriangle, ExternalLink, X, Users, UserPlus, Trash2, Activity, CheckCircle2, Trophy, Lightbulb, Target, Menu, Link as LinkIcon, FileText, Download, SkipForward, Sun, Moon, CheckSquare, Check, RotateCcw } from 'lucide-react';
+import { Play, Pause, Square, Plus, Minus, Wand2, Clock, AlertTriangle, ExternalLink, X, Users, UserPlus, Trash2, Activity, CheckCircle2, Trophy, Lightbulb, Target, Menu, Link as LinkIcon, FileText, Download, SkipForward, Sun, Moon, CheckSquare, Check, RotateCcw, Camera } from 'lucide-react';
 import { GoogleGenAI, Type } from '@google/genai';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -12,6 +13,11 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+const supabase = createClient(
+  'https://bubfhjcnbqioodyutpnh.supabase.co',
+  'sb_publishable_umaFDgRaT8C0HE3rvDaTZg_pCfKyk49'
+);
 
 // --- Types ---
 type Participant = { id: string; name: string; color: string; avatar: string; };
@@ -516,7 +522,25 @@ const EndMeetingModal = ({ onClose, meetingInfo, elapsedGlobal, targetDuration, 
           )}
         </div>
 
-        <button onClick={onClose} className="w-full py-3.5 bg-brand-orange text-white rounded-xl font-bold hover:bg-brand-orange/80 transition-colors shadow-lg shadow-brand-orange/20">
+        <button 
+          onClick={async () => {
+            try {
+              await supabase.from('meetings').insert([{
+                name: meetingInfo.name,
+                objective: meetingInfo.objective,
+                duration_seconds: targetDuration,
+                elapsed_seconds: elapsedGlobal,
+                blocks: blocks,
+                participants: participants,
+                is_dark_mode: isDarkMode
+              }]);
+            } catch (e) {
+              console.error("Error saving to Supabase:", e);
+            }
+            onClose();
+          }} 
+          className="w-full py-3.5 bg-brand-orange text-white rounded-xl font-bold hover:bg-brand-orange/80 transition-colors shadow-lg shadow-brand-orange/20"
+        >
           Cerrar y Guardar
         </button>
       </div>
