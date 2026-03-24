@@ -1,0 +1,89 @@
+@import url('https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400..700;1,400..700&family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Share+Tech+Mono&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-ubuntu: "Ubuntu", sans-serif;
+  --font-arimo: "Arimo", sans-serif;
+  --font-digital: "Share Tech Mono", monospace;
+
+  --color-brand-dark: #1a1a1a;
+  --color-brand-red: #f34551;
+  --color-brand-orange: #ff851d;
+  --color-brand-pink: #ef375c;
+
+  --color-bg-light: #e6e9ef;
+  --color-bg-dark: #18181b;
+}
+
+/* ── Shadow tokens: Light por defecto, Dark sobrescribe ── */
+:root {
+  --sh-neg: #c4c6cc;
+  --sh-pos: #ffffff;
+}
+
+.dark {
+  --sh-neg: #000000;
+  --sh-pos: #1a1a1a;
+}
+
+@layer base {
+  body {
+    @apply font-arimo bg-bg-light text-brand-dark transition-colors duration-300;
+  }
+  .dark body {
+    @apply bg-bg-dark text-gray-100;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-ubuntu;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-brand-orange to-brand-pink;
+  }
+  .bg-gradient-brand {
+    @apply bg-gradient-to-r from-brand-orange to-brand-pink;
+  }
+
+  /* Sombras 3D Neumorfismo — token-driven, funciona en Light Y Dark */
+  .shadow-3d {
+    box-shadow: 5px 5px 10px var(--sh-neg), -5px -5px 10px var(--sh-pos);
+  }
+  .shadow-3d-pressed {
+    box-shadow: inset 5px 5px 10px var(--sh-neg), inset -5px -5px 10px var(--sh-pos);
+  }
+  .shadow-3d-hover:hover {
+    box-shadow: 7px 7px 14px var(--sh-neg), -7px -7px 14px var(--sh-pos);
+    transform: translateY(-2px);
+    transition: all 0.2s ease-in-out;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(156, 163, 175, 0.5);
+    border-radius: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(156, 163, 175, 0.8);
+  }
+
+  input[type="color"] {
+    -webkit-appearance: none;
+    border: none;
+  }
+  input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+  input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+  }
+}
