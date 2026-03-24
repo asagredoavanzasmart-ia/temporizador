@@ -238,7 +238,7 @@ const SortableBlock = ({ block, totalDuration, isActive, isPast, blockProgress, 
             </button>
             {isAddParticipantOpen && (
               <div 
-                className="absolute right-0 top-full mt-1 bg-zinc-800 rounded-lg shadow-xl p-2 flex gap-1 z-50 w-max border border-zinc-700"
+                className="absolute right-0 top-full mt-1 bg-zinc-800 rounded-lg shadow-[0_10px_30px_rgba(0,0,0,0.5)] p-2 flex gap-1 z-[100] w-max border border-zinc-700"
                 onClick={(e) => e.stopPropagation()}
               >
                 {participants.filter((p:any) => !block.participantIds.includes(p.id)).map((p: any) => (
@@ -653,6 +653,7 @@ export default function App() {
   }, []);
   useEffect(() => { localStorage.setItem('agenda_dark_mode', JSON.stringify(isDarkMode)); }, [isDarkMode]);
   useEffect(() => { localStorage.setItem('agenda_checklist', JSON.stringify(checklist)); }, [checklist]);
+  useEffect(() => { localStorage.setItem('agenda_resources', JSON.stringify(resources)); }, [resources]);
 
   const [currentTime, setCurrentTime] = useState(new Date());
   useEffect(() => {
@@ -1119,10 +1120,13 @@ export default function App() {
 
   // UI States
   const [savedMeetings, setSavedMeetings] = useState<{id: string, name: string, date: string}[]>([]);
-  const [resources, setResources] = useState<{id: string, title: string, url: string, type: 'link' | 'doc'}[]>([
-    { id: 'r1', title: 'Presentación Principal', url: '#', type: 'doc' },
-    { id: 'r2', title: 'Enlace de Meet', url: '#', type: 'link' }
-  ]);
+  const [resources, setResources] = useState<{id: string, title: string, url: string, type: 'link' | 'doc'}[]>(() => {
+    const saved = localStorage.getItem('agenda_resources');
+    return saved ? JSON.parse(saved) : [
+      { id: 'r1', title: 'Presentación Principal', url: '#', type: 'doc' },
+      { id: 'r2', title: 'Enlace de Meet', url: '#', type: 'link' }
+    ];
+  });
 
   // La base de tiempo total para el eje Y debe incluir tiempo base + todas las extensiones (timeout)
   const effectiveTotal = totalDuration + timeoutState.used;
@@ -1303,14 +1307,36 @@ export default function App() {
             </h3>
             <div className="space-y-3">
               {resources.map(res => (
-                <a key={res.id} href={res.url} className={cn("flex items-center gap-3 p-3 rounded-xl transition-colors group", isDarkMode ? "bg-zinc-900 hover:bg-zinc-700" : "bg-bg-light hover:bg-gray-200")}>
-                  <div className={cn("p-2 rounded-lg shadow-sm group-hover:scale-110 transition-transform", isDarkMode ? "bg-zinc-800 text-brand-orange" : "bg-white text-brand-pink")}>
-                    {res.type === 'link' ? <LinkIcon size={16} /> : <FileText size={16} />}
+                <div key={res.id} className={cn("flex flex-col gap-2 p-3 rounded-xl border transition-all", isDarkMode ? "bg-zinc-900 border-zinc-700" : "bg-bg-light border-slate-100")}>
+                  <div className="flex items-center gap-2">
+                    <div className={cn("p-1.5 rounded-lg", isDarkMode ? "bg-zinc-800 text-brand-orange" : "bg-white text-brand-pink")}>
+                      {res.type === 'link' ? <LinkIcon size={14} /> : <FileText size={14} />}
+                    </div>
+                    <input 
+                      value={res.title}
+                      onChange={(e) => setResources(resources.map(r => r.id === res.id ? { ...r, title: e.target.value } : r))}
+                      className={cn("flex-1 bg-transparent border-none outline-none font-bold text-sm", isDarkMode ? "text-zinc-100" : "text-brand-dark")}
+                      placeholder="Título del recurso"
+                    />
+                    <button onClick={() => setResources(resources.filter(r => r.id !== res.id))} className="text-red-500 hover:bg-red-500/10 p-1 rounded"><Trash2 size={14}/></button>
                   </div>
-                  <span className={cn("font-bold text-sm truncate", isDarkMode ? "text-zinc-300" : "text-brand-dark")}>{res.title}</span>
-                </a>
+                  <div className="flex items-center gap-2 px-1">
+                    <input 
+                      value={res.url}
+                      onChange={(e) => setResources(resources.map(r => r.id === res.id ? { ...r, url: e.target.value } : r))}
+                      className={cn("flex-1 bg-transparent border-none outline-none text-[10px] font-medium truncate", isDarkMode ? "text-zinc-500" : "text-slate-400")}
+                      placeholder="https://..."
+                    />
+                    {res.url !== '#' && (
+                      <a href={res.url} target="_blank" rel="noopener noreferrer" className="text-brand-orange hover:scale-110 transition-transform"><ExternalLink size={12}/></a>
+                    )}
+                  </div>
+                </div>
               ))}
-              <button className={cn("w-full py-2 border-2 border-dashed rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2 mt-4", isDarkMode ? "border-zinc-700 text-zinc-500 hover:text-brand-orange hover:border-brand-orange" : "border-gray-200 text-gray-400 hover:text-brand-orange hover:border-brand-orange")}>
+              <button 
+                onClick={() => setResources([...resources, { id: `r-${Date.now()}`, title: '', url: '', type: 'link' }])}
+                className={cn("w-full py-2 border-2 border-dashed rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2 mt-4", isDarkMode ? "border-zinc-700 text-zinc-500 hover:text-brand-orange hover:border-brand-orange" : "border-gray-200 text-gray-400 hover:text-brand-orange hover:border-brand-orange")}
+              >
                 <Plus size={16} /> Añadir Recurso
               </button>
             </div>
